@@ -54,7 +54,7 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None):
             # if condition didn't match, generate path and apply writers and go to the next line
             if start_write:
                 date = convert_date(record['acquisitionDate'])
-                path = os.path.join(dst, str(date.year), str(date.month))
+                path = os.path.join(dst, str(date.year), str(date.month), str(date.day))
 
                 logger.info('processing %s' % record['sceneID'])
                 for w in writers:
