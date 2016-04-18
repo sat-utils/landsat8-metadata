@@ -1,19 +1,14 @@
 import os
-import json
 import logging
 import requests
+from datetime import datetime
 from collections import OrderedDict
 
 logger = logging.getLogger('landsat8.meta')
 
 
-def file_writer(path, metadata):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-    f = open(os.path.join(path, metadata['tile_name'] + '.json'), 'w')
-    f.write(json.dumps(metadata))
-    f.close()
+def convert_date(value):
+    return datetime.strptime(value, '%Y-%m-%d').date()
 
 
 def csv_reader(dst, writers, start_date=None, end_date=None, url=None):
@@ -57,8 +52,10 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None):
                 break
 
             # if condition didn't match, generate path and apply writers and go to the next line
-
             if start_write:
+                date = convert_date(record['acquisitionDate'])
+                path = os.path.join(dst, date.year, date.month)
+
                 logger.info('processing %s' % record['sceneID'])
                 for w in writers:
-                    w(dst, record)
+                    w(path, record)

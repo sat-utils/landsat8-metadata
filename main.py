@@ -5,7 +5,7 @@ import click
 import logging
 from copy import copy
 from collections import OrderedDict
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from elasticsearch import Elasticsearch, RequestError
 
 from reader import csv_reader
@@ -160,13 +160,6 @@ def last_updated(today):
         yr_counter += 1
 
     return None
-
-
-def convert_date(value):
-    try:
-        return datetime.strptime(value, '%Y-%m-%d').date()
-    except ValueError:
-        raise click.UsageError('Incorrect Date format (%s)' % value)
 
 
 @click.command()
