@@ -1,6 +1,9 @@
 import os
+import time
 import logging
 import requests
+from homura import download as fetch
+from tempfile import mkdtemp
 from datetime import datetime
 from collections import OrderedDict
 
@@ -11,18 +14,46 @@ def convert_date(value):
     return datetime.strptime(value, '%Y-%m-%d').date()
 
 
-def csv_reader(dst, writers, start_date=None, end_date=None, url=None):
+def download_meta(url, download_path):
+    dpath = download_path if download_path else mkdtemp()
+    dpath = os.path.join(dpath, 'LANDSAT_8.csv')
+
+    # don't download if the file is downloaded in the last 6 hours
+    if os.path.isfile(dpath):
+        mtime = os.path.getmtime(dpath)
+        if time.time() - mtime < (6 * 60 * 60):
+            return open(dpath, 'r')
+
+    fetch(url, dpath)
+    return open(dpath, 'r')
+
+
+def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
+               download=False, download_path=None):
     """ Reads landsat8 metadata from a csv file stored on USGS servers
     and applys writer functions on the data """
 
     if not url:
         url = 'http://landsat.usgs.gov/metadata_service/bulk_metadata_files/LANDSAT_8.csv'
-    r = requests.get(url, stream=True)
+
+    # download the whole file
+    if download:
+        logger.info('Downloading landsat8 metadata file')
+
+        # don't download if the file is downloaded in the last 6 hours
+        f = download_meta(url, download_path)
+        liner = f.readlines
+
+    # or read line by line
+    else:
+        logger.info('Streaming landsat8 metadata file')
+        r = requests.get(url, stream=True)
+        liner = r.iter_lines
 
     header = None
     start_write = False
 
-    for line in r.iter_lines():
+    for line in liner():
         row = line.split(',')
 
         # first line is the header
