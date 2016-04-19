@@ -169,8 +169,12 @@ def last_updated(today):
 @click.option('--es-host', default='localhost', help='Elasticsearch host address')
 @click.option('--es-port', default=9200, type=int, help='Elasticsearch port number')
 @click.option('--folder', default='.', help='Destination folder if is written to disk')
+@click.option('--download', is_flag=True,
+              help='Sets the updater to download the metadata file first instead of streaming it')
+@click.option('--download-folder', default=None,
+              help='The folder to save the downloaded metadata to. Defaults to a temp folder')
 @click.option('-v', '--verbose', is_flag=True)
-def main(ops, start, end, es_host, es_port, folder, verbose):
+def main(ops, start, end, es_host, es_port, folder, download, download_folder, verbose):
 
     if not ops:
         raise click.UsageError('No Argument provided. Use --help if you need help')
@@ -214,7 +218,7 @@ def main(ops, start, end, es_host, es_port, folder, verbose):
         start = date.today() - delta
         start = '{0}-{1}-{2}'.format(start.year, start.month, start.day)
 
-    csv_reader(folder, writers, start_date=start, end_date=end)
+    csv_reader(folder, writers, start_date=start, end_date=end, download=download, download_path=download_folder)
 
 
 if __name__ == '__main__':
