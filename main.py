@@ -214,7 +214,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
 
         create_index(es_index, es_type)
 
-    if not start:
+    if not start and not end:
         delta = timedelta(days=3)
         start = date.today() - delta
         start = '{0}-{1}-{2}'.format(start.year, start.month, start.day)
