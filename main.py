@@ -93,8 +93,8 @@ def elasticsearch_updater(product_dir, metadata):
                      body=body)
 
     except Exception as e:
-        print('Unhandled error occured while writing to elasticsearch')
-        print('Details: %s' % e.__str__())
+        logger.error('Unhandled error occured while writing to elasticsearch')
+        logger.error('Details: %s' % e.__str__())
 
 
 def file_writer(product_dir, metadata):
@@ -151,7 +151,7 @@ def last_updated(today):
                     start_day = 31
                     break
                 path = os.path.join(str(year), str(month), str(day))
-                print('checking %s' % path)
+                logger.info('checking %s' % path)
                 objs = bucket.objects.filter(Prefix=path).limit(1)
                 if list(objs):
                     return date(year, month, day)
@@ -174,7 +174,8 @@ def last_updated(today):
 @click.option('--download-folder', default=None,
               help='The folder to save the downloaded metadata to. Defaults to a temp folder')
 @click.option('-v', '--verbose', is_flag=True)
-def main(ops, start, end, es_host, es_port, folder, download, download_folder, verbose):
+@click.option('--concurrency', default=20, type=int, help='Process concurrency. Default=20')
+def main(ops, start, end, es_host, es_port, folder, download, download_folder, verbose, concurrency):
 
     if not ops:
         raise click.UsageError('No Argument provided. Use --help if you need help')
@@ -218,7 +219,8 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
         start = date.today() - delta
         start = '{0}-{1}-{2}'.format(start.year, start.month, start.day)
 
-    csv_reader(folder, writers, start_date=start, end_date=end, download=download, download_path=download_folder)
+    csv_reader(folder, writers, start_date=start, end_date=end, download=download, download_path=download_folder,
+               num_worker_threads=concurrency)
 
 
 if __name__ == '__main__':
