@@ -7,7 +7,6 @@ from copy import copy
 from collections import OrderedDict
 from datetime import date, timedelta
 from elasticsearch import Elasticsearch, RequestError
-from thumbs import thumbnail_writer
 
 from reader import csv_reader
 
