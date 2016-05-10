@@ -7,6 +7,7 @@ from copy import copy
 from collections import OrderedDict
 from datetime import date, timedelta
 from elasticsearch import Elasticsearch, RequestError
+import requests
 
 from reader import csv_reader
 
@@ -105,7 +106,6 @@ def thumbnail_writer(product_dir, metadata):
     the ES metadata writer afterwards.
     """
 
-    from main import elasticsearch_updater
     # Download original thumbnail
     orig_url = metadata['browseURL']
     r = requests.get(orig_url)
