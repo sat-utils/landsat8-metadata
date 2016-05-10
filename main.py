@@ -7,6 +7,7 @@ from copy import copy
 from collections import OrderedDict
 from datetime import date, timedelta
 from elasticsearch import Elasticsearch, RequestError
+from thumbs import thumbnail_writer
 
 from reader import csv_reader
 
@@ -163,7 +164,7 @@ def last_updated(today):
 
 
 @click.command()
-@click.argument('ops', metavar='<operations: choices: s3 | es | disk>', nargs=-1)
+@click.argument('ops', metavar='<operations: choices: s3 | es | disk | thumbs>', nargs=-1)
 @click.option('--start', default=None, help='Start Date. Format: YYYY-MM-DD')
 @click.option('--end', default=None, help='End Date. Format: YYYY-MM-DD')
 @click.option('--es-host', default='localhost', help='Elasticsearch host address')
@@ -182,7 +183,8 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
     accepted_args = {
         'es': elasticsearch_updater,
         's3': s3_writer,
-        'disk': file_writer
+        'disk': file_writer,
+        'thumbs': thumbnail_writer
     }
 
     writers = []
