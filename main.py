@@ -13,6 +13,7 @@ from reader import csv_reader
 
 logger = logging.getLogger('landsat8.meta')
 bucket_name = os.getenv('BUCKETNAME', 'landsat8-meta')
+thumbs_bucket_name = os.getenv('THUMBS_BUCKETNAME', 'ad-thumbnails')
 s3 = boto3.resource('s3')
 es_index = 'sat-api'
 es_type = 'landsat8'
@@ -88,6 +89,7 @@ def elasticsearch_updater(product_dir, metadata):
         try:
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
                      body=body)
+            print('Saved: ' + body['scene_id'])
         except RequestError as e:
             body['data_geometry'] = None
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
@@ -96,6 +98,29 @@ def elasticsearch_updater(product_dir, metadata):
     except Exception as e:
         logger.error('Unhandled error occured while writing to elasticsearch')
         logger.error('Details: %s' % e.__str__())
+
+
+def thumbnail_writer(product_dir, metadata):
+    """
+    Extra function to download images from USGS, then upload to S3 and call
+    the ES metadata writer afterwards.
+    """
+
+    from main import elasticsearch_updater
+    # Download original thumbnail
+    orig_url = metadata['browseURL']
+    r = requests.get(orig_url)
+    output_file = metadata['sceneID'] + '.jpg'
+
+    # Upload thumbnail to S3
+    s3.Object(thumbs_bucket_name, output_file).put(Body=r.content,
+                                                   ACL='public-read',
+                                                   ContentType='image/jpeg')
+
+    # Update metadata record
+    metadata['thumbnail'] = 'https://' + thumbs_bucket_name + \
+        '.s3.amazonaws.com/' + output_file
+    elasticsearch_updater(product_dir, metadata)
 
 
 def file_writer(product_dir, metadata):
@@ -207,7 +232,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    if 'es' in ops:
+    if 'es' in ops or 'thumbs' in ops:
         global es
         es = Elasticsearch([{
             'host': es_host,
