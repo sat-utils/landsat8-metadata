@@ -1,0 +1,9 @@
+landsat8:
+  image: 'astrodigital/sat-api-updater:v0.4.4'
+  command: 'python main.py thumbs --verbose --es-host search-sat-api-new-4zqfieosos34oe2ehlzfdzqthe.us-east-1.es.amazonaws.com --es-port 80 --concurrency 50 --start=2014-01-01 --download --download-folder="."'
+  working_dir: /ad
+  volumes:
+    - '.:/ad'
+  environment:
+    - AWS_ACCESS_KEY_ID=xxxxx
+    - AWS_SECRET_ACCESS_KEY=xxxxx

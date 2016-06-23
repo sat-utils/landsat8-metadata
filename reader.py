@@ -56,7 +56,7 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
 
         # don't download if the file is downloaded in the last 6 hours
         f = download_meta(url, download_path)
-        liner = f.readlines
+        liner = f
 
     # or read line by line
     else:
