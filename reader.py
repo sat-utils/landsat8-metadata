@@ -99,9 +99,8 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
 
         row_processor(record, date, dst, writers)
 
-    with futures.ThreadPoolExecutor(max_workers=4) as executor:
-        fs = executor.map(gen, liner())
-
-        for future in futures.as_completed(fs):
-            if future.exception() is not None:
-                print('generated an exception: %s' % future.exception())
+    with futures.ThreadPoolExecutor(max_workers=num_worker_threads) as executor:
+        try:
+            executor.map(gen, liner, timeout=30)
+        except futures.TimeoutError:
+            print('skipped')
