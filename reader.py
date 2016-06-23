@@ -2,7 +2,6 @@ import os
 import time
 import logging
 import requests
-from Queue import Queue
 from concurrent import futures
 from datetime import datetime
 from homura import download as fetch
@@ -47,13 +46,6 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
                download=False, download_path=None, num_worker_threads=1):
     """ Reads landsat8 metadata from a csv file stored on USGS servers
     and applys writer functions on the data """
-
-    threaded = False
-    threads = []
-
-    if num_worker_threads > 0:
-        threaded = True
-        queue = Queue()
 
     if not url:
         url = 'http://landsat.usgs.gov/metadata_service/bulk_metadata_files/LANDSAT_8.csv'
@@ -109,10 +101,6 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
 
     with futures.ThreadPoolExecutor(max_workers=num_worker_threads) as executor:
         try:
-            results = executor.map(gen, liner, timeout=30)
+            executor.map(gen, liner, timeout=30)
         except futures.TimeoutError:
             print('skipped')
-
-        #for future in futures.as_completed(results):
-        #    print('saved')
-

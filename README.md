@@ -1,12 +1,12 @@
-### Landsat8 Metadata Generator
+# Landsat8 Metadata Generator
 
 This small library helps with generating landsat 8 metadata and upload it to Amazon S3 and/or ElasticSearch
 
-#### Installation
+## Installation
 
     $ pip install -r requirements.txt
 
-#### Usage
+## Usage
 
 ```
     $ python main.py --help
@@ -30,3 +30,6 @@ This small library helps with generating landsat 8 metadata and upload it to Ama
 Example:
 
     $ python main.py s3 es --start='2016-01-01' --verbose
+
+## About
+The Landsat8 Metadata Generator was made by [Development Seed](http://developmentseed.org).
