@@ -1,5 +1,7 @@
 import os
 import json
+import boto
+from boto.s3.key import Key
 import boto3
 import click
 import logging
@@ -89,7 +91,7 @@ def elasticsearch_updater(product_dir, metadata):
         try:
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
                      body=body)
-            print('Saved: ' + body['scene_id'])
+            #print('Saved: ' + body['scene_id'])
         except RequestError as e:
             body['data_geometry'] = None
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
@@ -112,15 +114,21 @@ def thumbnail_writer(product_dir, metadata):
     output_file = metadata['sceneID'] + '.jpg'
 
     # Upload thumbnail to S3
-    s3.Object(thumbs_bucket_name, output_file).put(Body=r.content,
-                                                   ACL='public-read',
-                                                   ContentType='image/jpeg')
-
+    thumbs_bucket_name2 = os.getenv('THUMBS_BUCKETNAME', 'ad-thumbnails')
+    try:
+        print('uploading %s' % output_file)
+        c = boto.connect_s3()
+        b = c.get_bucket(thumbs_bucket_name2)
+        k = Key(b, name=output_file)
+        k.set_metadata('Content-Type', 'image/jpeg')
+        k.set_contents_from_string(r.content, policy='public-read')
+    except Exception as e:
+        print(e)
     # Update metadata record
     metadata['thumbnail'] = 'https://' + thumbs_bucket_name + \
         '.s3.amazonaws.com/' + output_file
     elasticsearch_updater(product_dir, metadata)
-
+    return
 
 def file_writer(product_dir, metadata):
     body = meta_constructor(metadata)
