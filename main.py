@@ -112,23 +112,27 @@ def thumbnail_writer(product_dir, metadata):
     orig_url = metadata['browseURL']
     r = requests.get(orig_url)
     output_file = metadata['sceneID'] + '.jpg'
+    thumbnail = 'https://' + thumbs_bucket_name + '.s3.amazonaws.com/' + output_file
 
-    # Upload thumbnail to S3
-    thumbs_bucket_name2 = os.getenv('THUMBS_BUCKETNAME', 'ad-thumbnails')
-    try:
-        print('uploading %s' % output_file)
-        c = boto.connect_s3()
-        b = c.get_bucket(thumbs_bucket_name2)
-        k = Key(b, name=output_file)
-        k.set_metadata('Content-Type', 'image/jpeg')
-        k.set_contents_from_string(r.content, policy='public-read')
-    except Exception as e:
-        print(e)
+    r = requests.get(thumbnail)
+    if r.status_code != 200:
+        # Upload thumbnail to S3
+        thumbs_bucket_name2 = os.getenv('THUMBS_BUCKETNAME', 'ad-thumbnails')
+        try:
+            print('uploading %s' % output_file)
+            c = boto.connect_s3()
+            b = c.get_bucket(thumbs_bucket_name2)
+            k = Key(b, name=output_file)
+            k.set_metadata('Content-Type', 'image/jpeg')
+            k.set_contents_from_string(r.content, policy='public-read')
+        except Exception as e:
+            print(e)
+
     # Update metadata record
-    metadata['thumbnail'] = 'https://' + thumbs_bucket_name + \
-        '.s3.amazonaws.com/' + output_file
+    metadata['thumbnail'] = thumbnail
     elasticsearch_updater(product_dir, metadata)
     return
+
 
 def file_writer(product_dir, metadata):
     body = meta_constructor(metadata)
