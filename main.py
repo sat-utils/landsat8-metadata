@@ -21,7 +21,7 @@ es_index = 'sat-api'
 es_type = 'landsat8'
 
 
-def create_index(index_name, doc_type):
+def create_index(index_name, doc_type, es_host, es_port):
 
     body = {
         doc_type: {
@@ -37,6 +37,10 @@ def create_index(index_name, doc_type):
             }
         }
     }
+    es = Elasticsearch([{
+        'host': es_host,
+        'port': es_port
+    }])
 
     es.indices.create(index=index_name, ignore=400)
 
@@ -81,41 +85,44 @@ def meta_constructor(metadata):
     return body
 
 
-def elasticsearch_updater(product_dir, metadata):
+def elasticsearch_updater(product_dir, metadata, **kwargs):
 
     try:
+        es = Elasticsearch([{
+            'host': kwargs['es_host'],
+            'port': kwargs['es_port']
+        }])
+
         body = meta_constructor(metadata)
 
         logger.info('Pushing to Elasticsearch')
 
         try:
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
-                     body=body)
-            #print('Saved: ' + body['scene_id'])
+                     body=body, timeout=10)
         except RequestError as e:
             body['data_geometry'] = None
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
-                     body=body)
+                     body=body, timeout=10)
 
     except Exception as e:
         logger.error('Unhandled error occured while writing to elasticsearch')
         logger.error('Details: %s' % e.__str__())
 
 
-def thumbnail_writer(product_dir, metadata):
+def thumbnail_writer(product_dir, metadata, **kwargs):
     """
     Extra function to download images from USGS, then upload to S3 and call
     the ES metadata writer afterwards.
     """
 
     # Download original thumbnail
-    orig_url = metadata['browseURL']
-    r = requests.get(orig_url)
     output_file = metadata['sceneID'] + '.jpg'
     thumbnail = 'https://' + thumbs_bucket_name + '.s3.amazonaws.com/' + output_file
 
-    r = requests.get(thumbnail)
-    if r.status_code != 200:
+    new_thumb = requests.get(thumbnail)
+    if new_thumb.status_code != 200:
+
         # Upload thumbnail to S3
         thumbs_bucket_name2 = os.getenv('THUMBS_BUCKETNAME', 'ad-thumbnails')
         try:
@@ -124,13 +131,15 @@ def thumbnail_writer(product_dir, metadata):
             b = c.get_bucket(thumbs_bucket_name2)
             k = Key(b, name=output_file)
             k.set_metadata('Content-Type', 'image/jpeg')
+            r = requests.get(metadata['browseURL'])
             k.set_contents_from_string(r.content, policy='public-read')
         except Exception as e:
             print(e)
 
     # Update metadata record
     metadata['thumbnail'] = thumbnail
-    elasticsearch_updater(product_dir, metadata)
+
+    elasticsearch_updater(product_dir, metadata, **kwargs)
     return
 
 
@@ -244,13 +253,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
     logger.addHandler(ch)
 
     if 'es' in ops or 'thumbs' in ops:
-        global es
-        es = Elasticsearch([{
-            'host': es_host,
-            'port': es_port
-        }])
-
-        create_index(es_index, es_type)
+        create_index(es_index, es_type, es_host, es_port)
 
     if not start and not end:
         delta = timedelta(days=3)
@@ -258,7 +261,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
         start = '{0}-{1}-{2}'.format(start.year, start.month, start.day)
 
     csv_reader(folder, writers, start_date=start, end_date=end, download=download, download_path=download_folder,
-               num_worker_threads=concurrency)
+               num_worker_threads=concurrency, es_host=es_host, es_port=es_port)
 
 
 if __name__ == '__main__':
