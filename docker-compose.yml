@@ -1,5 +1,5 @@
 landsat8:
-  image: 'astrodigital/sat-api-updater:v0.4.4'
+  image: 'astrodigital/sat-api-updater:v0.5.0'
   command: 'python main.py thumbs --verbose --es-host search-sat-api-new-4zqfieosos34oe2ehlzfdzqthe.us-east-1.es.amazonaws.com --es-port 80 --concurrency 50 --start=2014-01-01 --download --download-folder="."'
   working_dir: /ad
   volumes:
