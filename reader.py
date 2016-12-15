@@ -48,7 +48,7 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
     and applys writer functions on the data """
 
     if not url:
-        url = 'http://landsat.usgs.gov/metadata_service/bulk_metadata_files/LANDSAT_8.csv'
+        url = 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_8.csv'
 
     # download the whole file
     if download:
