@@ -1,6 +1,7 @@
 import os
 import json
 import boto
+import urllib2
 from boto.s3.key import Key
 import boto3
 import click
@@ -8,7 +9,8 @@ import logging
 from copy import copy
 from collections import OrderedDict
 from datetime import date, timedelta
-from elasticsearch import Elasticsearch, RequestError
+from elasticsearch import Elasticsearch, RequestError, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 import requests
 
 from reader import csv_reader
@@ -21,7 +23,57 @@ es_index = 'sat-api'
 es_type = 'landsat8'
 
 
-def create_index(index_name, doc_type, es_host, es_port):
+def get_url(url, j=False):
+    req = urllib2.Request(url)
+    r = urllib2.urlopen(req).read()
+    if j:
+        obj = json.loads(r)
+    else:
+        obj = r
+    return obj
+
+
+def get_role():
+    url = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/'
+    obj = get_url(url)
+    return obj
+
+
+def get_credentials():
+    role = get_role()
+    url = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' + role
+    obj = get_url(url, True)
+    return obj
+
+
+def connection_to_es(es_host, es_port, aws=False):
+
+    args = {}
+
+    if aws:
+        cred = get_credentials()
+
+        access_key = cred['AccessKeyId']
+        secret_access = cred['SecretAccessKey']
+        region = cred['us-east-1']
+        awsauth = AWS4Auth(access_key, secret_access, region, 'es')
+
+        args = {
+            'http_auth': awsauth,
+            'use_ssl': True,
+            'verify_certs': True,
+            'connection_class': RequestsHttpConnection
+        }
+
+    es = Elasticsearch(hosts=[{
+        'host': es_host,
+        'port': es_port
+    }], **args)
+
+    return es
+
+
+def create_index(index_name, doc_type, es_host, es_port, **kwargs):
 
     body = {
         doc_type: {
@@ -37,10 +89,7 @@ def create_index(index_name, doc_type, es_host, es_port):
             }
         }
     }
-    es = Elasticsearch([{
-        'host': es_host,
-        'port': es_port
-    }])
+    es = connection_to_es(es_host, es_port, kwargs['aws'])
 
     es.indices.create(index=index_name, ignore=400)
 
@@ -88,10 +137,7 @@ def meta_constructor(metadata):
 def elasticsearch_updater(product_dir, metadata, **kwargs):
 
     try:
-        es = Elasticsearch([{
-            'host': kwargs['es_host'],
-            'port': kwargs['es_port']
-        }])
+        es = connection_to_es(kwargs['es_host'], kwargs['es_port'], kwargs['aws'])
 
         body = meta_constructor(metadata)
 
@@ -217,11 +263,14 @@ def last_updated(today):
 @click.option('--folder', default='.', help='Destination folder if is written to disk')
 @click.option('--download', is_flag=True,
               help='Sets the updater to download the metadata file first instead of streaming it')
+@click.option('--aws', is_flag=True, default=False,
+              help='Uses AWS STS to obtain aws credentials for accessing the various services')
 @click.option('--download-folder', default=None,
               help='The folder to save the downloaded metadata to. Defaults to a temp folder')
 @click.option('-v', '--verbose', is_flag=True)
 @click.option('--concurrency', default=20, type=int, help='Process concurrency. Default=20')
-def main(ops, start, end, es_host, es_port, folder, download, download_folder, verbose, concurrency):
+def main(ops, start, end, es_host, es_port, folder, download,
+         aws, download_folder, verbose, concurrency):
 
     if not ops:
         raise click.UsageError('No Argument provided. Use --help if you need help')
@@ -253,7 +302,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
     logger.addHandler(ch)
 
     if 'es' in ops or 'thumbs' in ops:
-        create_index(es_index, es_type, es_host, es_port)
+        create_index(es_index, es_type, es_host, es_port, aws=aws)
 
     if not start and not end:
         delta = timedelta(days=3)
@@ -261,7 +310,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
         start = '{0}-{1}-{2}'.format(start.year, start.month, start.day)
 
     csv_reader(folder, writers, start_date=start, end_date=end, download=download, download_path=download_folder,
-               num_worker_threads=concurrency, es_host=es_host, es_port=es_port)
+               num_worker_threads=concurrency, es_host=es_host, es_port=es_port, aws=aws)
 
 
 if __name__ == '__main__':
