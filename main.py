@@ -167,7 +167,7 @@ def dynamodb_updater(product_dir, metadata, **kwargs):
                 'S': metadata['sceneID']
             },
             'body': {
-                'S': metadata
+                'S': json.dumps(metadata)
             }
         }
     )
