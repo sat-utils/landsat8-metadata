@@ -55,8 +55,10 @@ def connection_to_es(es_host, es_port, aws=False):
 
         access_key = cred['AccessKeyId']
         secret_access = cred['SecretAccessKey']
+        token = cred['token']
         region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
-        awsauth = AWS4Auth(access_key, secret_access, region, 'es')
+        awsauth = AWS4Auth(access_key, secret_access, region, 'es',
+                           session_token=token)
 
         args = {
             'http_auth': awsauth,
