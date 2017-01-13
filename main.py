@@ -164,7 +164,7 @@ def dynamodb_updater(product_dir, metadata, **kwargs):
         TableName='landsat',
         Item={
             'scene_id': {
-                'S': metadata['scene_id']
+                'S': metadata['sceneID']
             },
             'body': {
                 'S': metadata
