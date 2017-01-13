@@ -172,7 +172,7 @@ def dynamodb_updater(product_dir, metadata, **kwargs):
         }
     )
 
-    print('Posted %s to DynamoDB' % kwargs['metadata']['scene_id'])
+    print('Posted %s to DynamoDB' % metadata['sceneID'])
 
 
 def thumbnail_writer(product_dir, metadata, **kwargs):
@@ -204,7 +204,7 @@ def thumbnail_writer(product_dir, metadata, **kwargs):
     # Update metadata record
     metadata['thumbnail'] = thumbnail
 
-    elasticsearch_updater(product_dir, metadata, **kwargs)
+    dynamodb_updater(product_dir, metadata, **kwargs)
     return
 
 
