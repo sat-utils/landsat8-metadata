@@ -147,11 +147,11 @@ def elasticsearch_updater(product_dir, metadata, **kwargs):
 
         try:
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
-                     body=body, timeout=10)
+                     body=body)
         except RequestError as e:
             body['data_geometry'] = None
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
-                     body=body, timeout=10)
+                     body=body)
 
     except Exception as e:
         logger.error('Unhandled error occured while writing to elasticsearch')
