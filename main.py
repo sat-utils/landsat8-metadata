@@ -158,7 +158,7 @@ def elasticsearch_updater(product_dir, metadata, **kwargs):
         logger.error('Details: %s' % e.__str__())
 
 
-def dynamodb_updater(**kwargs):
+def dynamodb_updater(product_dir, metadata, **kwargs):
     client = boto3.client('dynamodb', region_name='us-east-1')
     client.put_item(
         TableName='landsat',
