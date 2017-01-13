@@ -158,6 +158,23 @@ def elasticsearch_updater(product_dir, metadata, **kwargs):
         logger.error('Details: %s' % e.__str__())
 
 
+def dynamodb_updater(**kwargs):
+    client = boto3.client('dynamodb', region_name='us-east-1')
+    client.put_item(
+        TableName='landsat',
+        Item={
+            'scene_id': {
+                'S': kwargs['metadata']['scene_id']
+            },
+            'body': {
+                'S': kwargs['metadata']
+            }
+        }
+    )
+
+    print('Posted %s to DynamoDB' % kwargs['metadata']['scene_id'])
+
+
 def thumbnail_writer(product_dir, metadata, **kwargs):
     """
     Extra function to download images from USGS, then upload to S3 and call
@@ -281,7 +298,8 @@ def main(ops, start, end, es_host, es_port, folder, download,
         'es': elasticsearch_updater,
         's3': s3_writer,
         'disk': file_writer,
-        'thumbs': thumbnail_writer
+        'thumbs': thumbnail_writer,
+        'db': dynamodb_updater
     }
 
     writers = []
