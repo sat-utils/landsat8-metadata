@@ -1,6 +1,7 @@
 import os
 import json
 import boto
+import urllib2
 from boto.s3.key import Key
 import boto3
 import click
@@ -8,7 +9,8 @@ import logging
 from copy import copy
 from collections import OrderedDict
 from datetime import date, timedelta
-from elasticsearch import Elasticsearch, RequestError
+from elasticsearch import Elasticsearch, RequestError, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 import requests
 
 from reader import csv_reader
@@ -21,7 +23,40 @@ es_index = 'sat-api'
 es_type = 'landsat8'
 
 
-def create_index(index_name, doc_type, es_host, es_port):
+def get_credentials():
+    obj = get_instance_metadata()
+    return obj['iam']['security-credentials'].values()[0]
+
+
+def connection_to_es(es_host, es_port, aws=False):
+    args = {}
+
+    if aws:
+        cred = get_credentials()
+
+        access_key = cred['AccessKeyId']
+        secret_access = cred['SecretAccessKey']
+        token = cred['Token']
+        region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+        awsauth = AWS4Auth(access_key, secret_access, region, 'es',
+                           session_token=token)
+
+        args = {
+            'http_auth': awsauth,
+            'use_ssl': True,
+            'verify_certs': True,
+            'connection_class': RequestsHttpConnection
+        }
+
+    es = Elasticsearch(hosts=[{
+        'host': es_host,
+        'port': es_port
+    }], **args)
+
+    return es
+
+
+def create_index(index_name, doc_type, es_host, es_port, **kwargs):
 
     body = {
         doc_type: {
@@ -37,10 +72,7 @@ def create_index(index_name, doc_type, es_host, es_port):
             }
         }
     }
-    es = Elasticsearch([{
-        'host': es_host,
-        'port': es_port
-    }])
+    es = connection_to_es(es_host, es_port, kwargs['aws'])
 
     es.indices.create(index=index_name, ignore=400)
 
@@ -88,10 +120,7 @@ def meta_constructor(metadata):
 def elasticsearch_updater(product_dir, metadata, **kwargs):
 
     try:
-        es = Elasticsearch([{
-            'host': kwargs['es_host'],
-            'port': kwargs['es_port']
-        }])
+        es = connection_to_es(kwargs['es_host'], kwargs['es_port'], kwargs['aws'])
 
         body = meta_constructor(metadata)
 
@@ -99,15 +128,35 @@ def elasticsearch_updater(product_dir, metadata, **kwargs):
 
         try:
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
-                     body=body, timeout=10)
+                     body=body)
         except RequestError as e:
             body['data_geometry'] = None
             es.index(index=es_index, doc_type=es_type, id=body['scene_id'],
-                     body=body, timeout=10)
+                     body=body)
 
     except Exception as e:
         logger.error('Unhandled error occured while writing to elasticsearch')
         logger.error('Details: %s' % e.__str__())
+
+
+def dynamodb_updater(product_dir, metadata, **kwargs):
+    client = boto3.client('dynamodb', region_name='us-east-1')
+    client.put_item(
+        TableName='landsat',
+        Item={
+            'scene_id': {
+                'S': metadata['sceneID']
+            },
+            'body': {
+                'S': json.dumps(meta_constructor(metadata))
+            }
+        },
+        ReturnValues='NONE',
+        ReturnConsumedCapacity='NONE',
+        ReturnItemCollectionMetrics='NONE'
+    )
+
+    print('Posted %s to DynamoDB' % metadata['sceneID'])
 
 
 def thumbnail_writer(product_dir, metadata, **kwargs):
@@ -139,6 +188,7 @@ def thumbnail_writer(product_dir, metadata, **kwargs):
     # Update metadata record
     metadata['thumbnail'] = thumbnail
 
+    dynamodb_updater(product_dir, meta_constructor(metadata), **kwargs)
     elasticsearch_updater(product_dir, metadata, **kwargs)
     return
 
@@ -217,11 +267,14 @@ def last_updated(today):
 @click.option('--folder', default='.', help='Destination folder if is written to disk')
 @click.option('--download', is_flag=True,
               help='Sets the updater to download the metadata file first instead of streaming it')
+@click.option('--aws', is_flag=True, default=False,
+              help='Uses AWS STS to obtain aws credentials for accessing the various services')
 @click.option('--download-folder', default=None,
               help='The folder to save the downloaded metadata to. Defaults to a temp folder')
 @click.option('-v', '--verbose', is_flag=True)
 @click.option('--concurrency', default=20, type=int, help='Process concurrency. Default=20')
-def main(ops, start, end, es_host, es_port, folder, download, download_folder, verbose, concurrency):
+def main(ops, start, end, es_host, es_port, folder, download,
+         aws, download_folder, verbose, concurrency):
 
     if not ops:
         raise click.UsageError('No Argument provided. Use --help if you need help')
@@ -230,7 +283,8 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
         'es': elasticsearch_updater,
         's3': s3_writer,
         'disk': file_writer,
-        'thumbs': thumbnail_writer
+        'thumbs': thumbnail_writer,
+        'db': dynamodb_updater
     }
 
     writers = []
@@ -253,7 +307,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
     logger.addHandler(ch)
 
     if 'es' in ops or 'thumbs' in ops:
-        create_index(es_index, es_type, es_host, es_port)
+        create_index(es_index, es_type, es_host, es_port, aws=aws)
 
     if not start and not end:
         delta = timedelta(days=3)
@@ -261,7 +315,7 @@ def main(ops, start, end, es_host, es_port, folder, download, download_folder, v
         start = '{0}-{1}-{2}'.format(start.year, start.month, start.day)
 
     csv_reader(folder, writers, start_date=start, end_date=end, download=download, download_path=download_folder,
-               num_worker_threads=concurrency, es_host=es_host, es_port=es_port)
+               num_worker_threads=concurrency, es_host=es_host, es_port=es_port, aws=aws)
 
 
 if __name__ == '__main__':
