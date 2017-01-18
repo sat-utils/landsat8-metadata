@@ -111,7 +111,8 @@ def bulk_updater(records):
         data.append(meta_constructor(record))
 
     es = connection_to_es(os.getenv('ES_HOST'), 443)
-    r = es.bulk(index='sat-api', body=data, refresh=True)
+    elasticsearch.helpers.parallel_bulk(es, data)
+    # r = es.bulk(index='sat-api', body=data, refresh=True)
     # print(r)
 
 

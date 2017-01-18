@@ -23,31 +23,12 @@ es_index = 'sat-api'
 es_type = 'landsat8'
 
 
-def get_url(url, j=False):
-    req = urllib2.Request(url)
-    r = urllib2.urlopen(req).read()
-    if j:
-        obj = json.loads(r)
-    else:
-        obj = r
-    return obj
-
-
-def get_role():
-    url = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/'
-    obj = get_url(url)
-    return obj
-
-
 def get_credentials():
-    role = get_role()
-    url = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' + role
-    obj = get_url(url, True)
-    return obj
+    obj = get_instance_metadata()
+    return obj['iam']['security-credentials'].values()[0]
 
 
 def connection_to_es(es_host, es_port, aws=False):
-
     args = {}
 
     if aws:
@@ -55,7 +36,7 @@ def connection_to_es(es_host, es_port, aws=False):
 
         access_key = cred['AccessKeyId']
         secret_access = cred['SecretAccessKey']
-        token = cred['token']
+        token = cred['Token']
         region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
         awsauth = AWS4Auth(access_key, secret_access, region, 'es',
                            session_token=token)
@@ -167,9 +148,12 @@ def dynamodb_updater(product_dir, metadata, **kwargs):
                 'S': metadata['sceneID']
             },
             'body': {
-                'S': json.dumps(metadata)
+                'S': json.dumps(meta_constructor(metadata))
             }
-        }
+        },
+        ReturnValues='NONE',
+        ReturnConsumedCapacity='NONE',
+        ReturnItemCollectionMetrics='NONE'
     )
 
     print('Posted %s to DynamoDB' % metadata['sceneID'])
@@ -204,7 +188,8 @@ def thumbnail_writer(product_dir, metadata, **kwargs):
     # Update metadata record
     metadata['thumbnail'] = thumbnail
 
-    dynamodb_updater(product_dir, metadata, **kwargs)
+    dynamodb_updater(product_dir, meta_constructor(metadata), **kwargs)
+    elasticsearch_updater(product_dir, metadata, **kwargs)
     return
 
 
