@@ -23,6 +23,7 @@ def create_index(index_name, doc_type):
         doc_type: {
             'properties': {
                 'scene_id': {'type': 'string', 'index': 'not_analyzed'},
+                'product_id': {'type': 'string'},
                 'satellite_name': {'type': 'string'},
                 'cloud_coverage': {'type': 'float'},
                 'date': {'type': 'date'},
@@ -65,6 +66,7 @@ def meta_constructor(metadata):
 
     body = OrderedDict([
         ('scene_id', metadata.get('sceneID')),
+        ('product_id', metadata.get('LANDSAT_PRODUCT_ID')),
         ('satellite_name', 'landsat-8'),
         ('cloud_coverage', metadata.get('cloudCoverFull', 100)),
         ('date', metadata.get('acquisitionDate')),
