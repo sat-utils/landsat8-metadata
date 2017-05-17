@@ -21,7 +21,7 @@ def convert_date(value):
 
 def download_meta(url, download_path):
     dpath = download_path if download_path else mkdtemp()
-    dpath = os.path.join(dpath, 'LANDSAT_8.csv')
+    dpath = os.path.join(dpath, 'LANDSAT_8_C1.csv')
 
     # don't download if the file is downloaded in the last 6 hours
     if os.path.isfile(dpath):
@@ -48,7 +48,7 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
     and applys writer functions on the data """
 
     if not url:
-        url = 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_8.csv'
+        url = 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_8_C1.csv'
 
     # download the whole file
     if download:
