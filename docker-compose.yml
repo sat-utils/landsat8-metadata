@@ -1,0 +1,6 @@
+landsat8:
+  image: 'astrodigital/sat-api-updater:v0.5.0'
+  command: 'python main.py thumbs --verbose --es-host www.example.com --es-port 443 --concurrency 50 --start=2014-01-01 --download --download-folder="."'
+  working_dir: /ad
+  volumes:
+    - '.:/ad'

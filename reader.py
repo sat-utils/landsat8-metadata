@@ -33,17 +33,17 @@ def download_meta(url, download_path):
     return open(dpath, 'r')
 
 
-def row_processor(record, date, dst, writers):
+def row_processor(record, date, dst, writers, **kwargs):
 
     path = os.path.join(dst, str(date.year), str(date.month), str(date.day))
 
     logger.info('processing %s' % record['sceneID'])
     for w in writers:
-        w(path, record)
+        w(path, record, **kwargs)
 
 
 def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
-               download=False, download_path=None, num_worker_threads=1):
+               download=False, download_path=None, num_worker_threads=1, **kwargs):
     """ Reads landsat8 metadata from a csv file stored on USGS servers
     and applys writer functions on the data """
 
@@ -56,13 +56,13 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
 
         # don't download if the file is downloaded in the last 6 hours
         f = download_meta(url, download_path)
-        liner = f.readlines
+        liner = f
 
     # or read line by line
     else:
         logger.info('Streaming landsat8 metadata file')
         r = requests.get(url, stream=True)
-        liner = r.iter_lines
+        liner = r.iter_lines()
 
     if start_date:
         start_date = convert_date(start_date)
@@ -97,10 +97,14 @@ def csv_reader(dst, writers, start_date=None, end_date=None, url=None,
         if start_date and date < start_date:
             return
 
-        row_processor(record, date, dst, writers)
+        print('sending for row processing')
+        row_processor(record, date, dst, writers, **kwargs)
 
-    with futures.ThreadPoolExecutor(max_workers=num_worker_threads) as executor:
-        try:
-            executor.map(gen, liner, timeout=30)
-        except futures.TimeoutError:
-            print('skipped')
+    if num_worker_threads <= 1:
+        map(gen, liner)
+    else:
+        with futures.ThreadPoolExecutor(max_workers=num_worker_threads) as executor:
+            try:
+                executor.map(gen, liner, timeout=10)
+            except futures.TimeoutError:
+                print('skipped')
