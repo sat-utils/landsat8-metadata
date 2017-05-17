@@ -37,7 +37,7 @@ def row_processor(record, date, dst, writers):
 
     path = os.path.join(dst, str(date.year), str(date.month), str(date.day))
 
-    logger.info('processing %s' % record['LANDSAT_PRODUCT_ID'])
+    logger.info('processing %s' % record['sceneID'])
     for w in writers:
         w(path, record)
 
