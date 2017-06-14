@@ -1,4 +1,6 @@
-# Landsat8 Metadata Generator
+# Landsat8 Metadata Generator [DEPRECATED]
+
+*Use [sat-api](https://github.com/sat-utils/sat-api) for running the API and updating it*
 
 This small library helps with generating landsat 8 metadata and upload it to Amazon S3 and/or ElasticSearch
 
